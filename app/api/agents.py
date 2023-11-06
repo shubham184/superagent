@@ -60,13 +60,21 @@ logging.basicConfig(level=logging.INFO)
     description="Create a new agent",
     response_model=AgentResponse,
 )
-async def create(body: AgentRequest, api_user=Depends(get_current_api_user)):
+async def create(body: AgentRequest, api_user_id=Depends(get_keycloak_user_id)):  # Renamed for clarity
     """Endpoint for creating an agent"""
     try:
+        # First, find the API User associated with the Keycloak user ID
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id})
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found")
+
+        # If using Segment, track the agent creation
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Created Agent", {**body.dict()})
+
+        # Create the new agent with the API User's ID
         data = await prisma.agent.create(
-            {**body.dict(), "apiUserId": api_user.id},
+            data={**body.dict(), "apiUserId": api_user.id},
             include={
                 "tools": {"include": {"tool": True}},
                 "datasources": {"include": {"datasource": True}},
@@ -76,6 +84,7 @@ async def create(body: AgentRequest, api_user=Depends(get_current_api_user)):
         return {"success": True, "data": data}
     except Exception as e:
         handle_exception(e)
+
 
 
 @router.get(

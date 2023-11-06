@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 
 class ApiUser(BaseModel):
-    email: str
+    pass
 
 
 class Agent(BaseModel):

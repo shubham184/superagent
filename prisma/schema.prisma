@@ -62,16 +62,17 @@ enum DatasourceStatus {
 }
 
 model ApiUser {
-  id          String       @id @default(uuid())
-  token       String?
-  email       String?      @db.Text
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  agents      Agent[]
-  llms        LLM[]
-  datasources Datasource[]
-  tools       Tool[]
-  workflows   Workflow[]
+  id             String      @id @default(uuid())
+  keycloakUserId String?     @unique
+  token          String?
+  email          String?     @db.Text
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  agents         Agent[]
+  llms           LLM[]
+  datasources    Datasource[]
+  tools          Tool[]
+  workflows      Workflow[]
 }
 
 model Agent {
