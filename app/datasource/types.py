@@ -1,0 +1,14 @@
+VALID_UNSTRUCTURED_DATA_TYPES = [
+    "TXT",
+    "PDF",
+    "DOCX",
+    "PPTX",
+    "GOOGLE_DOC",
+    "MARKDOWN",
+    "GITHUB_REPOSITORY",
+    "WEBPAGE",
+    "NOTION",
+    "URL",
+]
+
+VALID_STRUCTURED_DATA_TYPES = ["AIRTABLE", "CSV", "STRIPE", "XLSX"]
