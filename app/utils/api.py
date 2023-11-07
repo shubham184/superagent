@@ -1,6 +1,6 @@
 import logging
 from jose import JWTError, jwt
-from fastapi import HTTPException, Security, Depends
+from fastapi import HTTPException, Security, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import httpx
 from typing import Dict
