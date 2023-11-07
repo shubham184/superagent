@@ -5,7 +5,7 @@ from typing import AsyncIterable
 
 import segment.analytics as analytics
 from decouple import config
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from langsmith import Client
 
@@ -41,7 +41,7 @@ from app.models.response import AgentRunList as AgentRunListResponse
 from app.models.response import (
     AgentToolList as AgentToolListResponse,
 )
-from app.utils.api import get_current_api_user, handle_exception
+from app.utils.api import get_current_api_user, handle_exception, get_keycloak_user_id
 from app.utils.prisma import prisma
 from app.utils.streaming import CustomAsyncIteratorCallbackHandler
 
@@ -93,9 +93,13 @@ async def create(body: AgentRequest, api_user_id=Depends(get_keycloak_user_id)):
     description="List all agents",
     response_model=AgentListResponse,
 )
-async def list(api_user=Depends(get_current_api_user)):
+async def list(api_user_id=Depends(get_keycloak_user_id)): # modified
     """Endpoint for listing all agents"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         data = await prisma.agent.find_many(
             take=100, where={"apiUserId": api_user.id}, include={"llms": True}
         )
@@ -110,9 +114,13 @@ async def list(api_user=Depends(get_current_api_user)):
     description="Get a single agent",
     response_model=AgentResponse,
 )
-async def get(agent_id: str, api_user=Depends(get_current_api_user)):
+async def get(agent_id: str, api_user_id=Depends(get_keycloak_user_id)): # modified
     """Endpoint for getting a single agent"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         data = await prisma.agent.find_first(
             where={"id": agent_id, "apiUserId": api_user.id},
             include={
