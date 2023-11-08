@@ -142,9 +142,13 @@ async def get(agent_id: str, api_user_id=Depends(get_keycloak_user_id)): # modif
     description="Delete an agent",
     response_model=None,
 )
-async def delete(agent_id: str, api_user=Depends(get_current_api_user)):
+async def delete(agent_id: str, api_user_id=Depends(get_keycloak_user_id)): # modified
     """Endpoint for deleting an agent"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Deleted Agent")
         await prisma.agent.delete(where={"id": agent_id})
@@ -160,10 +164,14 @@ async def delete(agent_id: str, api_user=Depends(get_current_api_user)):
     response_model=AgentResponse,
 )
 async def update(
-    agent_id: str, body: AgentRequest, api_user=Depends(get_current_api_user)
+    agent_id: str, body: AgentRequest, api_user_id=Depends(get_keycloak_user_id) # modified
 ):
     """Endpoint for patching an agent"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Updated Agent")
         data = await prisma.agent.update(
@@ -185,7 +193,7 @@ async def update(
     response_model=AgentInvokeResponse,
 )
 async def invoke(
-    agent_id: str, body: AgentInvokeRequest, api_user=Depends(get_current_api_user)
+    agent_id: str, body: AgentInvokeRequest, api_user_id=Depends(get_keycloak_user_id) # modified
 ):
     """Endpoint for invoking an agent"""
 
@@ -193,6 +201,13 @@ async def invoke(
         agent: AgentBase, content: str, callback: CustomAsyncIteratorCallbackHandler
     ) -> AsyncIterable[str]:
         try:
+            api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+            if not api_user:
+                raise HTTPException(status_code=404, detail="API User not found") # modified
+            
+            if SEGMENT_WRITE_KEY:
+                analytics.track(api_user.id, "Invoked Agent", {**body.dict()}) # modified
+
             task = asyncio.ensure_future(
                 agent.acall(inputs={"input": content}, tags=[agent_id])
             )
@@ -206,8 +221,7 @@ async def invoke(
         finally:
             callback.done.set()
 
-    if SEGMENT_WRITE_KEY:
-        analytics.track(api_user.id, "Invoked Agent", {**body.dict()})
+    
 
     logging.info("Invoking agent...")
     session_id = body.sessionId
@@ -244,10 +258,14 @@ async def invoke(
     response_model=AgentResponse,
 )
 async def add_llm(
-    agent_id: str, body: AgentLLMRequest, api_user=Depends(get_current_api_user)
+    agent_id: str, body: AgentLLMRequest, api_user_id=Depends(get_keycloak_user_id) # modified
 ):
     """Endpoint for adding an LLM to an agent"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+
         await prisma.agentllm.create({**body.dict(), "agentId": agent_id})
         return {"success": True, "data": None}
     except Exception as e:
@@ -260,10 +278,14 @@ async def add_llm(
     description="Remove LLM from agent",
 )
 async def remove_llm(
-    agent_id: str, llm_id: str, api_user=Depends(get_current_api_user)
+    agent_id: str, llm_id: str, api_user_id=Depends(get_keycloak_user_id) # modified
 ):
     """Endpoint for removing an LLM from an agent"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+
         await prisma.agentllm.delete(
             where={"agentId_llmId": {"agentId": agent_id, "llmId": llm_id}}
         )
@@ -282,10 +304,14 @@ async def remove_llm(
 async def add_tool(
     agent_id: str,
     body: AgentToolRequest,
-    api_user=Depends(get_current_api_user),
+    api_user_id=Depends(get_keycloak_user_id) # modified there was a comma here but I removed it
 ):
     """Endpoint for adding a tool to an agent"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Added Agent Tool")
         agent_tool = await prisma.agenttool.find_unique(
@@ -313,9 +339,13 @@ async def add_tool(
     description="List agent tools",
     response_model=AgentToolListResponse,
 )
-async def list_tools(agent_id: str, api_user=Depends(get_current_api_user)):
+async def list_tools(agent_id: str,  api_user_id=Depends(get_keycloak_user_id)): # modified
     """Endpoint for listing agent tools"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         agent_tools = await prisma.agenttool.find_many(where={"agentId": agent_id})
         return {"success": True, "data": agent_tools}
     except Exception as e:
@@ -328,10 +358,14 @@ async def list_tools(agent_id: str, api_user=Depends(get_current_api_user)):
     description="Remove tool from agent",
 )
 async def remove_tool(
-    agent_id: str, tool_id: str, api_user=Depends(get_current_api_user)
+    agent_id: str, tool_id: str, api_user_id=Depends(get_keycloak_user_id) # modified
 ):
     """Endpoint for removing a tool from an agent"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Deleted Agent Tool")
         await prisma.agenttool.delete(
@@ -357,10 +391,14 @@ async def remove_tool(
 async def add_datasource(
     agent_id: str,
     body: AgentDatasourceRequest,
-    api_user=Depends(get_current_api_user),
+    api_user_id=Depends(get_keycloak_user_id) # modified there was a comma here but I removed it
 ):
     """Endpoint for adding a datasource to an agent"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Added Agent Datasource")
 
@@ -401,9 +439,13 @@ async def add_datasource(
     description="List agent datasources",
     response_model=AgentDatasosurceListResponse,
 )
-async def list_datasources(agent_id: str, api_user=Depends(get_current_api_user)):
+async def list_datasources(agent_id: str, api_user_id=Depends(get_keycloak_user_id)): # modified
     """Endpoint for listing agent datasources"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         agent_datasources = await prisma.agentdatasource.find_many(
             where={"agentId": agent_id}
         )
@@ -418,10 +460,14 @@ async def list_datasources(agent_id: str, api_user=Depends(get_current_api_user)
     description="Remove datasource from agent",
 )
 async def remove_datasource(
-    agent_id: str, datasource_id: str, api_user=Depends(get_current_api_user)
+    agent_id: str, datasource_id: str, api_user_id=Depends(get_keycloak_user_id) # modified
 ):
     """Endpoint for removing a datasource from an agent"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Deleted Agent Datasource")
         await prisma.agentdatasource.delete(
@@ -454,9 +500,13 @@ async def remove_datasource(
     description="List agent runs",
     response_model=AgentRunListResponse,
 )
-async def list_runs(agent_id: str, api_user=Depends(get_current_api_user)):
+async def list_runs(agent_id: str, api_user_id=Depends(get_keycloak_user_id)): # modified
     """Endpoint for listing agent runs"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         output = langsmith_client.list_runs(
             project_name=config("LANGCHAIN_PROJECT"),
             filter=f"has(tags, '{agent_id}')",

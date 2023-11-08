@@ -2,7 +2,7 @@ import logging
 
 import segment.analytics as analytics
 from decouple import config
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.models.request import (
     Workflow as WorkflowRequest,
@@ -15,7 +15,7 @@ from app.models.request import (
 )
 from app.models.response import Workflow as WorkflowResponse
 from app.models.response import WorkflowList as WorkflowListResponse
-from app.utils.api import get_current_api_user, handle_exception
+from app.utils.api import get_current_api_user, handle_exception, get_keycloak_user_id # modified
 from app.utils.prisma import prisma
 from app.workflows.base import WorkflowBase
 
@@ -32,9 +32,13 @@ analytics.write_key = SEGMENT_WRITE_KEY
     description="Create a new workflow",
     response_model=WorkflowResponse,
 )
-async def create(body: WorkflowRequest, api_user=Depends(get_current_api_user)):
+async def create(body: WorkflowRequest, api_user_id=Depends(get_keycloak_user_id)): # modified
     """Endpoint for creating a workflow"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Created Workflow")
         data = await prisma.workflow.create(
@@ -54,9 +58,13 @@ async def create(body: WorkflowRequest, api_user=Depends(get_current_api_user)):
     description="List all workflows",
     response_model=WorkflowListResponse,
 )
-async def list(api_user=Depends(get_current_api_user)):
+async def list(api_user_id=Depends(get_keycloak_user_id)): # modified
     """Endpoint for listing all workflows"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         data = await prisma.workflow.find_many(
             where={"apiUserId": api_user.id}, order={"createdAt": "desc"}
         )
@@ -71,9 +79,13 @@ async def list(api_user=Depends(get_current_api_user)):
     description="Get a single workflow",
     response_model=WorkflowResponse,
 )
-async def get(workflow_id: str, api_user=Depends(get_current_api_user)):
+async def get(workflow_id: str, api_user_id=Depends(get_keycloak_user_id)): # modified
     """Endpoint for getting a single workflow"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         data = await prisma.workflow.find_first(
             where={"id": workflow_id, "apiUserId": api_user.id}
         )
@@ -89,10 +101,14 @@ async def get(workflow_id: str, api_user=Depends(get_current_api_user)):
     response_model=WorkflowResponse,
 )
 async def update(
-    workflow_id: str, body: WorkflowRequest, api_user=Depends(get_current_api_user)
+    workflow_id: str, body: WorkflowRequest, api_user_id=Depends(get_keycloak_user_id) # modified
 ):
     """Endpoint for patching a workflow"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Updated Workflow")
         data = await prisma.workflow.update(
@@ -112,9 +128,13 @@ async def update(
     name="delete",
     description="Delete a specific workflow",
 )
-async def delete(workflow_id: str, api_user=Depends(get_current_api_user)):
+async def delete(workflow_id: str, api_user_id=Depends(get_keycloak_user_id)): # modified
     """Endpoint for deleting a specific workflow"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Deleted Workflow")
         await prisma.workflowstep.delete_many(where={"workflowId": workflow_id})
@@ -132,16 +152,22 @@ async def delete(workflow_id: str, api_user=Depends(get_current_api_user)):
 async def invoke(
     workflow_id: str,
     body: WorkflowInvokeRequest,
-    api_user=Depends(get_current_api_user),
+    api_user_id=Depends(get_keycloak_user_id) # modified and I had a try/except block here
 ):
-    """Endpoint for invoking a specific workflow"""
-    if SEGMENT_WRITE_KEY:
-        analytics.track(api_user.id, "Invoked Workflow")
-    workflow = WorkflowBase(
-        workflow_id=workflow_id, enable_streaming=body.enableStreaming
-    )
-    output = await workflow.arun(body.input)
-    return {"success": True, "data": output}
+    try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        """Endpoint for invoking a specific workflow"""
+        if SEGMENT_WRITE_KEY:
+            analytics.track(api_user.id, "Invoked Workflow")
+        workflow = WorkflowBase(
+            workflow_id=workflow_id, enable_streaming=body.enableStreaming
+        )
+        output = await workflow.arun(body.input)
+        return {"success": True, "data": output}
+    except Exception as e:
+        handle_exception(e)
 
 
 # Workflow steps
@@ -152,10 +178,14 @@ async def invoke(
     response_model=WorkflowResponse,
 )
 async def add_step(
-    workflow_id: str, body: WorkflowStepRequest, api_user=Depends(get_current_api_user)
+    workflow_id: str, body: WorkflowStepRequest, api_user_id=Depends(get_keycloak_user_id) # modified
 ):
     """Endpoint for creating a workflow step"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Created Workflow Step")
         data = await prisma.workflowstep.create(
@@ -176,9 +206,13 @@ async def add_step(
     description="List all steps of a workflow",
     response_model=WorkflowListResponse,
 )
-async def list_steps(workflow_id: str, api_user=Depends(get_current_api_user)):
+async def list_steps(workflow_id: str, api_user_id=Depends(get_keycloak_user_id)): # modified
     """Endpoint for listing all steps of a workflow"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         data = await prisma.workflowstep.find_many(
             where={"workflowId": workflow_id}, order={"order": "asc"}
         )
@@ -193,10 +227,14 @@ async def list_steps(workflow_id: str, api_user=Depends(get_current_api_user)):
     description="Delete a specific workflow step",
 )
 async def delete_step(
-    workflow_id: str, step_id: str, api_user=Depends(get_current_api_user)
+    workflow_id: str, step_id: str, api_user_id=Depends(get_keycloak_user_id) # modified
 ):
     """Endpoint for deleting a specific workflow step"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Deleted Workflow Step")
         await prisma.workflowstep.delete(where={"id": step_id})

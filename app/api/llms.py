@@ -2,12 +2,12 @@ import json
 
 import segment.analytics as analytics
 from decouple import config
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.models.request import LLM as LLMRequest
 from app.models.response import LLM as LLMResponse
 from app.models.response import LLMList as LLMListResponse
-from app.utils.api import get_current_api_user, handle_exception
+from app.utils.api import get_current_api_user, handle_exception, get_keycloak_user_id # modified
 from app.utils.prisma import prisma
 from prisma import Json
 
@@ -23,19 +23,25 @@ analytics.write_key = SEGMENT_WRITE_KEY
     description="Create a new LLM",
     response_model=LLMResponse,
 )
-async def create(body: LLMRequest, api_user=Depends(get_current_api_user)):
+async def create(body: LLMRequest, api_user_id=Depends(get_keycloak_user_id)): # modified and I had a try except block
     """Endpoint for creating an LLM"""
-    if SEGMENT_WRITE_KEY:
-        analytics.track(api_user.id, "Created LLM")
-    data = await prisma.llm.create(
-        {
-            **body.dict(),
-            "apiUserId": api_user.id,
-            "options": json.dumps(body.options),
-        }
-    )
-    data.options = json.dumps(data.options)
-    return {"success": True, "data": data}
+    try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        if SEGMENT_WRITE_KEY:
+            analytics.track(api_user.id, "Created LLM")
+        data = await prisma.llm.create(
+            {
+                **body.dict(),
+                "apiUserId": api_user.id,
+                "options": json.dumps(body.options),
+            }
+        )
+        data.options = json.dumps(data.options)
+        return {"success": True, "data": data}
+    except Exception as e:
+        handle_exception(e)
 
 
 @router.get(
@@ -44,9 +50,13 @@ async def create(body: LLMRequest, api_user=Depends(get_current_api_user)):
     description="List all LLMs",
     response_model=LLMListResponse,
 )
-async def list(api_user=Depends(get_current_api_user)):
+async def list(api_user_id=Depends(get_keycloak_user_id)): # modified
     """Endpoint for listing all LLMs"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         data = await prisma.llm.find_many(
             where={"apiUserId": api_user.id}, order={"createdAt": "desc"}
         )
@@ -64,9 +74,13 @@ async def list(api_user=Depends(get_current_api_user)):
     description="Get a single LLM",
     response_model=LLMResponse,
 )
-async def get(llm_id: str, api_user=Depends(get_current_api_user)):
+async def get(llm_id: str, api_user_id=Depends(get_keycloak_user_id)): # modified
     """Endpoint for getting a single LLM"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         data = await prisma.llm.find_first(
             where={"id": llm_id, "apiUserId": api_user.id}
         )
@@ -82,9 +96,13 @@ async def get(llm_id: str, api_user=Depends(get_current_api_user)):
     description="Patch an LLM",
     response_model=LLMResponse,
 )
-async def update(llm_id: str, body: LLMRequest, api_user=Depends(get_current_api_user)):
+async def update(llm_id: str, body: LLMRequest, api_user_id=Depends(get_keycloak_user_id)): # modified
     """Endpoint for patching an LLM"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Updated LLM")
         data = await prisma.llm.update(
