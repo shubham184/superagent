@@ -5,7 +5,7 @@ from typing import AsyncIterable
 
 import segment.analytics as analytics
 from decouple import config
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from langsmith import Client
 
@@ -41,7 +41,7 @@ from app.models.response import AgentRunList as AgentRunListResponse
 from app.models.response import (
     AgentToolList as AgentToolListResponse,
 )
-from app.utils.api import get_current_api_user, handle_exception
+from app.utils.api import get_current_api_user, get_keycloak_user_id, handle_exception
 from app.utils.prisma import prisma
 from app.utils.streaming import CustomAsyncIteratorCallbackHandler
 
