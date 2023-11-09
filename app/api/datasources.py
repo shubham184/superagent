@@ -3,7 +3,7 @@ import json
 
 import segment.analytics as analytics
 from decouple import config
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException # added
 
 from app.datasource.flow import vectorize_datasource
 from app.models.request import Datasource as DatasourceRequest
@@ -13,7 +13,7 @@ from app.models.response import (
 from app.models.response import (
     DatasourceList as DatasourceListResponse,
 )
-from app.utils.api import get_current_api_user, handle_exception
+from app.utils.api import get_current_api_user, handle_exception, get_keycloak_user_id
 from app.utils.prisma import prisma
 from prisma.models import Datasource
 
@@ -31,10 +31,14 @@ analytics.write_key = SEGMENT_WRITE_KEY
 )
 async def create(
     body: DatasourceRequest,
-    api_user=Depends(get_current_api_user),
+    api_user_id=Depends(get_keycloak_user_id) # modified
 ):
     """Endpoint for creating an datasource"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         if body.metadata:
             body.metadata = json.dumps(body.metadata)
 
@@ -62,9 +66,13 @@ async def create(
     description="List all datasources",
     response_model=DatasourceListResponse,
 )
-async def list(api_user=Depends(get_current_api_user)):
+async def list(api_user_id=Depends(get_keycloak_user_id)): # modified
     """Endpoint for listing all datasources"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         data = await prisma.datasource.find_many(
             where={"apiUserId": api_user.id}, order={"createdAt": "desc"}
         )
@@ -79,9 +87,13 @@ async def list(api_user=Depends(get_current_api_user)):
     description="Get a specific datasource",
     response_model=DatasourceResponse,
 )
-async def get(datasource_id: str, api_user=Depends(get_current_api_user)):
+async def get(datasource_id: str, api_user_id=Depends(get_keycloak_user_id)): # modified
     """Endpoint for getting a specific datasource"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         data = await prisma.datasource.find_first(
             where={"id": datasource_id, "apiUserId": api_user.id}
         )
@@ -97,10 +109,14 @@ async def get(datasource_id: str, api_user=Depends(get_current_api_user)):
     response_model=DatasourceResponse,
 )
 async def update(
-    datasource_id: str, body: DatasourceRequest, api_user=Depends(get_current_api_user)
+    datasource_id: str, body: DatasourceRequest, api_user_id=Depends(get_keycloak_user_id) # modified
 ):
     """Endpoint for updating a specific datasource"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Updated Datasource")
         data = await prisma.datasource.update(
@@ -117,9 +133,13 @@ async def update(
     name="delete",
     description="Delete a specific datasource",
 )
-async def delete(datasource_id: str, api_user=Depends(get_current_api_user)):
+async def delete(datasource_id: str, api_user_id=Depends(get_keycloak_user_id)): # modified
     """Endpoint for deleting a specific datasource"""
     try:
+        api_user = await prisma.apiuser.find_unique(where={"keycloakUserId": api_user_id}) # modified
+        if not api_user:
+            raise HTTPException(status_code=404, detail="API User not found") # modified
+        
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Deleted Datasource")
         await prisma.agentdatasource.delete_many(where={"datasourceId": datasource_id})

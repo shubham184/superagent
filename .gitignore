@@ -1,10 +1,10 @@
 __pycache__
 *.pyc
-#.env
 .venv
 .vscode
 .DS_Store
 
 # local env files
 .env*.local
-#.env
+.env
+/virtual
