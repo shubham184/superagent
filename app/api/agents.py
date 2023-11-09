@@ -41,7 +41,8 @@ from app.models.response import AgentRunList as AgentRunListResponse
 from app.models.response import (
     AgentToolList as AgentToolListResponse,
 )
-from app.utils.api import get_current_api_user, handle_exception, get_keycloak_user_id
+
+from app.utils.api import get_current_api_user, get_keycloak_user_id, handle_exception
 from app.utils.prisma import prisma
 from app.utils.streaming import CustomAsyncIteratorCallbackHandler
 
