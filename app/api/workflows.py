@@ -14,6 +14,7 @@ from app.models.request import (
     WorkflowStep as WorkflowStepRequest,
 )
 from app.models.response import Workflow as WorkflowResponse
+from app.models.response import WorkflowStep as WorkflowStepResponse
 from app.models.response import WorkflowList as WorkflowListResponse
 from app.utils.api import get_current_api_user, handle_exception, get_keycloak_user_id # modified
 from app.utils.prisma import prisma
@@ -175,7 +176,7 @@ async def invoke(
     "/workflows/{workflow_id}/steps",
     name="add_step",
     description="Create a new workflow step",
-    response_model=WorkflowResponse,
+    response_model=WorkflowStepResponse,
 )
 async def add_step(
     workflow_id: str, body: WorkflowStepRequest, api_user_id=Depends(get_keycloak_user_id) # modified

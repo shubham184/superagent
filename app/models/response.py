@@ -26,6 +26,9 @@ from prisma.models import (
 from prisma.models import (
     Workflow as WorkflowModel,
 )
+from prisma.models import (
+    WorkflowStep as WorkflowStepModel,
+)
 
 
 class ApiUser(BaseModel):
@@ -108,6 +111,10 @@ class Workflow(BaseModel):
     data: Optional[WorkflowModel]
 
 
+class WorkflowStep(BaseModel):
+    success: bool
+    data: Optional[WorkflowStepModel]
+
 class WorkflowList(BaseModel):
     success: bool
-    data: Optional[List[WorkflowModel]]
+    data: Optional[List[WorkflowStepModel]]

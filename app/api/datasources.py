@@ -18,6 +18,8 @@ from app.utils.prisma import prisma
 from prisma.models import Datasource
 
 SEGMENT_WRITE_KEY = config("SEGMENT_WRITE_KEY", None)
+account_name = config("AZURE_STORAGE_ACCOUNT_NAME")
+account_key = config("AZURE_STORAGE_ACCOUNT_KEY")
 
 router = APIRouter()
 analytics.write_key = SEGMENT_WRITE_KEY
@@ -147,3 +149,48 @@ async def delete(datasource_id: str, api_user_id=Depends(get_keycloak_user_id)):
         return {"success": True, "data": None}
     except Exception as e:
         handle_exception(e)
+
+
+@router.get(
+    "/getSASToken/{blobName}",
+    name="Get SAS Token",
+    description="Generate and return the SAS token for a given blob",
+)
+async def get_sas_token(blobName: str, api_user_id=Depends(get_keycloak_user_id)):
+    logger.info(f"get_sas_token called for blob: {blobName}")
+    try:
+        blob_service_client = BlobServiceClient(account_url=f"https://{account_name}.blob.core.windows.net", credential=account_key)
+        
+        # Create a container for the user if it doesn't exist
+        container_client = blob_service_client.get_container_client(container=api_user_id)
+        try:
+            container_client.create_container()
+        except ResourceExistsError:
+            pass  # Container already exists, so pass
+
+        # Create a SAS token that's valid for one day
+        start_time = datetime.now(timezone.utc)
+        expiry_time = start_time + timedelta(days=1)
+
+        sas_token = generate_blob_sas(
+            account_name=account_name,
+            container_name=str(api_user_id),
+            blob_name=blobName,
+            account_key=account_key,
+            permission=BlobSasPermissions(read=True, write=True, delete=True),  # you can adjust permissions as needed
+            expiry=expiry_time,
+            start=start_time
+        )
+
+        logger.info(f"SAS token generated for blob: {blobName}")
+
+        return {
+            "success": True, 
+            "sasToken": f"https://{account_name}.blob.core.windows.net/{str(api_user_id)}/{blobName}?{sas_token}"
+        }
+
+    except Exception as e:
+        logger.error(f"Error generating SAS token for blob: {blobName}", exc_info=e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
